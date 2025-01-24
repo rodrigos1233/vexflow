@@ -37,7 +37,32 @@ const durationAliases: Record<string, string> = {
   b: '256',
 };
 
-const keySignatures: Record<string, { acc?: string; num: number }> = {
+type KeySignature = {
+  acc?: string;
+  num: number;
+};
+
+type KeySignatures = Record<string, KeySignature>;
+
+const generateKeySignatures = (): KeySignatures => {
+  const keySignatures: KeySignatures = {};
+
+  // Generate flats
+  for (let i = 1; i <= 14; i++) {
+    keySignatures[`flats_${i}`] = { acc: 'b', num: i };
+  }
+
+  // Generate sharps
+  for (let i = 1; i <= 14; i++) {
+    keySignatures[`sharps_${i}`] = { acc: '#', num: i };
+  }
+
+  return keySignatures;
+};
+
+
+const keySignatures: Record<string, KeySignature> = {
+  ...generateKeySignatures(),
   C: { num: 0 },
   Am: { num: 0 },
   F: { acc: 'b', num: 1 },
@@ -54,6 +79,8 @@ const keySignatures: Record<string, { acc?: string; num: number }> = {
   Ebm: { acc: 'b', num: 6 },
   Cb: { acc: 'b', num: 7 },
   Abm: { acc: 'b', num: 7 },
+  Dbm: { acc: 'b', num: 8 },
+  Gbm: { acc: 'b', num: 9 },
   G: { acc: '#', num: 1 },
   Em: { acc: '#', num: 1 },
   D: { acc: '#', num: 2 },
@@ -68,6 +95,9 @@ const keySignatures: Record<string, { acc?: string; num: number }> = {
   'D#m': { acc: '#', num: 6 },
   'C#': { acc: '#', num: 7 },
   'A#m': { acc: '#', num: 7 },
+  'G#': { acc: '#', num: 8 },
+  'D#': { acc: '#', num: 9 },
+  'A#': { acc: '#', num: 10 },
 };
 
 const clefs: Record<string, { line_shift: number }> = {
@@ -742,15 +772,28 @@ export class Tables {
       '#': [0, 1.5, -0.5, 1, 2.5, 0.5, 2],
     };
 
-    const notes = accidentalList[keySpec.acc];
-
-    const acc_list = [];
-    for (let i = 0; i < keySpec.num; ++i) {
-      const line = notes[i];
-      acc_list.push({ type: keySpec.acc, line });
+    // Check if the accidental type exists in accidentalList
+    const baseNotes = accidentalList[keySpec.acc];
+    if (!baseNotes) {
+      throw new RuntimeError('UnsupportedAccidental', `Unsupported accidental type: '${keySpec.acc}'`);
     }
 
-    return acc_list;
+    const accidentalCount = Math.min(keySpec.num, 7);
+    const doubleAccidentalCount = Math.max(keySpec.num - 7, 0);
+
+    // Map the first `accidentalCount` notes as regular accidentals
+    const regularAccidentals = baseNotes.slice(doubleAccidentalCount, accidentalCount).map((line) => ({
+      type: `${keySpec.acc}`,
+      line,
+    }));
+
+    // Map the last `doubleAccidentalCount` notes as double accidentals
+    const doubleAccidentals = baseNotes
+      .slice(0, doubleAccidentalCount)
+      .map((line) => ({ type: `${keySpec.acc}${keySpec.acc}`, line }));
+
+    // Combine regular and double accidentals
+    return [...regularAccidentals, ...doubleAccidentals];
   }
 
   static getKeySignatures(): Record<string, { acc?: string; num: number }> {
